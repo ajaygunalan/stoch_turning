@@ -92,7 +92,7 @@ MR = [210, 195, 300, 265, 420, 460, 430, 250, 350, 315, 500, 160]
 # [FLK  FLH  FLA  FRA  FRH  FRK  HLH  HLK  HLA  HRA  HRK  HRH]
 
 MR[m_FRK] = 460; MR[m_FRH] = 225; MR[m_FRA] = 265
-MR[m_FLK] = 180; MR[m_FLH] = 530; MR[m_FLA] = 300
+MR[m_FLK] = 180; MR[m_FLH] = 490; MR[m_FLA] = 300
 MR[m_HRK] = 500; MR[m_HRH] = 190; MR[m_HRA] = 315
 MR[m_HLK] = 250; MR[m_HLH] = 470; MR[m_HLA] = 350
 
@@ -111,7 +111,7 @@ fre_out = 0 # Initiating oscillation frequrncy (Hz)
 W= np.loadtxt('Weight_RL_CS.txt').transpose()
 Phi = [0, PI, PI, 0]
 # [-0.0503245,  -0.06732678,  1.0, -0.03611052,  1.0, -0.11518157, -0.11246687, -0.04629093,  0.12832975, -0.06655705,  1.0,  -0.15476286,  1.0, 0.0516125,   0.0841161,   0.18423271]
-r_off = [0.175, 0]
+r_off = [0.175,-10]
 while 1:
     if kb.kbhit():
 	c = kb.getch()
@@ -153,8 +153,8 @@ while 1:
 	kMP[3] = sin(2*Theta)
 
 	# First order approximation
-        l_data = r_off[0] + np.dot(np.array(kMP), np.array(W[:,2*i])) * 0.015
-        theta_data = r_off[1] + 8*  np.dot(np.array(kMP), np.array(W[:,2*i+1])) *PI/180.
+        l_data = r_off[0] + np.dot(np.array(kMP), np.array(W[:,2*i])) * 0.04
+        theta_data = r_off[1] + 8.33 *  np.dot(np.array(kMP), np.array(W[:,2*i+1])) *PI/180.
 
 	r = [l_data, Amp_turn[i]*theta_data]
 	q_IK = IK_polar(Lh, Lk, r)
