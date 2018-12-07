@@ -447,23 +447,43 @@ def Inverse_Kinamatics(Lh, Lk, r):
     # Lh = initial hip orientation. Usually expressed as Lh: 2x1 [0, lh]
     # Lk = initial knee vector. Lk: 2x1 [0, lk]
 
-    l3 = np.dot(r, r) ** 0.5
-    l1 = Lh[1]
-    l2 = Lk[1]
+    	l3 = np.dot(r, r) ** 0.5
+    	l1 = Lh[1]
+    	l2 = Lk[1]
 
-    zai = atan2(r[1], r[0])
-    alpha = PI/2 + zai
-    v1 = (l1 ** 2 + l2 ** 2 - l3 ** 2)
-    v2 = (-2 * l1 * l2)
+    	zai = atan2(r[1], r[0])
+    	alpha = PI/2 + zai
+    	v1 = (l1 ** 2 + l2 ** 2 - l3 ** 2)
+    	v2 = (-2 * l1 * l2)
+	cInv = v1/v2
+	#if abs(cInv) >0.95: cInv = np.sign(cInv) * 0.95
+	#print cInv
 
-    cInv = v1/v2
-    if cInv >1: cInv = 1
-    elif cInv <-1: cInV = -1
+    	q2 = math.acos(cInv)
+    	q1 = math.asin(l2 * sin(math.pi - q2) / l3) + alpha
 
-    q2 = math.acos(cInv)
-    q1 = math.asin(l2 * sin(math.pi - q2) / l3) + alpha
+    	return [q1, q2+q1]
+    
+def Inverse_Kinamatics_polar(Lh, Lk, r):
+    # r = Target point for the 2 link system r: 2x1 [a, b]
+    # Lh = initial hip orientation. Usually expressed as Lh: 2x1 [0, lh]
+    # Lk = initial knee vector. Lk: 2x1 [0, lk]
 
-    return [q1, q2+q1]
+    	l3 = r[0]
+    	l1 = Lh[1]
+    	l2 = Lk[1]
+
+    	alpha = r[1]
+    	v1 = (l1 ** 2 + l2 ** 2 - l3 ** 2)
+    	v2 = (-2 * l1 * l2)
+	cInv = v1/v2
+	#if abs(cInv) >0.95: cInv = np.sign(cInv) * 0.95
+	#print cInv
+
+    	q2 = math.acos(cInv)
+    	q1 = math.asin(l2 * sin(math.pi - q2) / l3) + alpha
+
+    	return [q1, q2+q1]
 
 def ik_point2point(p0, p1, pb, nx, ny, nz, l1, l2):
     r = p1 - p0

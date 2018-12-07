@@ -8,7 +8,7 @@ import time
 from smbus import SMBus
 import Adafruit_PCA9685
 import math
-from SherControl_Scripts_global import Inverse_Kinamatics as IK
+from SherControl_Scripts_global import Inverse_Kinamatics_polar as IK_polar
 from SherControl_Scripts_global import Jacobian_Inv as JInv
 from SherControl_Scripts_global import *
 import numpy as np
@@ -64,10 +64,6 @@ n_FLK = 15; n_FLH = 14; n_FLA = 13
 n_HRK = 15; n_HRH = 14; n_HRA = 13
 n_HLK = 0; n_HLH = 1; n_HLA = 2
 
-# Joint data
-#end_data = np.loadtxt('end_effector_data_Trot_5.txt')
-end_data = np.loadtxt('end_effector_data.txt')
-
 # Theta, percent, FLK, FLH, HLK, HLH, FRK, FRH, HRK, HRH
 # 0      1          2   3   4    5      6   7   8    9
 
@@ -77,11 +73,6 @@ lk = -0.13		# Knee link length
 
 Lh = [0, lh]		# Vectorizing: all links are set to zero about -ve Y-axis
 Lk = [0, lk]		# Vectorizing: all links are set to zero about -ve Y-axis
-
-# frequency in Hertz
-f = 2.5			# frequency of oscillation in Hz
-w = 2*PI*f		# Hz to sec/rad conversion
-
 # Integration time
 dt = 0.05
 T_run = 20000
@@ -105,12 +96,6 @@ MR[m_FLK] = 180; MR[m_FLH] = 530; MR[m_FLA] = 300
 MR[m_HRK] = 500; MR[m_HRH] = 190; MR[m_HRA] = 315
 MR[m_HLK] = 250; MR[m_HLH] = 470; MR[m_HLA] = 350
 
-Theta = end_data[:,0]
-Dtheta = Theta[1] - Theta[0]
-Theta_min = min(Theta)
-
-y_end = [end_data[:,3], end_data[:,7], end_data[:,5], end_data[:,9]]
-x_end = [end_data[:,2], end_data[:,6], end_data[:,4], end_data[:,8]]
 
 flag = 0
 clock_begin = time.time()
@@ -118,10 +103,15 @@ clock_begin = time.time()
 q = np.zeros([12, 1])
 q_3d = np.zeros([12, 1])
 
-theta = [0 , 0, 0 , 0]
-theta0 = [0 , 0, 0 , 0]
+theta = 0
+theta0 = 0
 omega = 0 # Intiating turning variable
 fre_out = 0 # Initiating oscillation frequrncy (Hz)
+
+W= np.loadtxt('Weight_RL_CS.txt').transpose()
+Phi = [0, PI, PI, 0]
+# [-0.0503245,  -0.06732678,  1.0, -0.03611052,  1.0, -0.11518157, -0.11246687, -0.04629093,  0.12832975, -0.06655705,  1.0,  -0.15476286,  1.0, 0.0516125,   0.0841161,   0.18423271]
+r_off = [0.175, 0]
 while 1:
     if kb.kbhit():
 	c = kb.getch()
@@ -148,26 +138,32 @@ while 1:
         Amp_turn = np.array([1, 1, 0, 0])
     else:
         Amp_turn = np.array([1, 1, 1, 1])
+        
+    # Oscillation phase
+    theta = (2*PI*fre_out * dt +  theta0)%(2*PI)				# Eular integration
+    kMP = [0,0,0,0]
 
     # Inverse kinematics and angle transformation of individual legs
     for i in range(4):
-        theta[i] = 2*PI*fre_out * dt +  theta0[i]				# Eular integration
-        theta_internal =(theta[i]) % (2*PI)		# mod(theta, 2 pi)
-    	ip = int((theta_internal - Theta_min) / Dtheta)
-    	dtheta = theta_internal - Theta[ip-1]			# difference
+	Theta = (theta + Phi[i])% (2*PI)
+	# Determining the kMP
+	kMP[0] = cos(Theta)
+	kMP[1] = cos(2*Theta)
+	kMP[2] = sin(Theta)
+	kMP[3] = sin(2*Theta)
 
 	# First order approximation
-  	x_data = x_end[i][ip-1] + (x_end[i][ip] - x_end[i][ip-1]) * dtheta/Dtheta
-	y_data = y_end[i][ip-1] +  (y_end[i][ip] - y_end[i][ip-1]) * dtheta/Dtheta
+        l_data = r_off[0] + np.dot(np.array(kMP), np.array(W[:,2*i])) * 0.015
+        theta_data = r_off[1] + 8*  np.dot(np.array(kMP), np.array(W[:,2*i+1])) *PI/180.
 
-	r = [-Amp_turn[i] * x_data, y_data]
-	q_IK = IK(Lh, Lk, r)
+	r = [l_data, Amp_turn[i]*theta_data]
+	q_IK = IK_polar(Lh, Lk, r)
 	# Angle transformation between Robot Actuator frame and
 	# calculation assumption
 	# [0-Fl 1-Hl 2-Fr 3-Hr]		# 		Fl Hl Fr Hr
 	q_3d[3*i] = PI/2 + q_IK[0] 	# Hip: 		0  3  6  9
         q_3d[3*i+1] = PI/2 - q_IK[1] 	# Knee: 	1  4  7  10
-	q_3d[3*i+2] = 0 		# Abduction: 	2  5  8  11
+	q_3d[3*i+2] = 0 		# Abduction: 	2  5  8  11	
 
 
     # Connection/ Transformation between input Data format and Motor input format
@@ -212,3 +208,4 @@ while 1:
 
 
 kb.set_normal_term()
+
