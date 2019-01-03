@@ -1,6 +1,6 @@
 from __future__ import division
-import sys
-import sysv_ipc 
+import sys, getopt
+import sysv_ipc
 sys.path.append('.')
 import RTIMU
 import os.path
@@ -25,24 +25,27 @@ if not os.path.exists(SETTINGS_FILE + ".ini"):
         print("Settings file does not exist, will be created")
 
 s = RTIMU.Settings(SETTINGS_FILE)
-print s
+#print s
 imu = RTIMU.RTIMU(s)
-print imu
+
+#print imu
 print("IMU Name: " + imu.IMUName())
 
 if (not imu.IMUInit()):
         print("IMU Init Failed")
-        # sys.exit(1)
+        sys.exit(1)
 else:
     print("IMU Init Succeeded")
-    # this is a good time to set any fusion parameters
-    imu.setSlerpPower(0.02)
-    imu.setGyroEnable(True)
-    imu.setAccelEnable(True)
-    imu.setCompassEnable(True)
 
-    poll_interval = imu.IMUGetPollInterval()
-    print("Recommended Poll Interval: %dmS\n" % poll_interval)
+# this is a good time to set any fusion parameters
+imu.setSlerpPower(0.02)
+imu.setGyroEnable(True)
+imu.setAccelEnable(True)
+imu.setCompassEnable(True)
+
+poll_interval = imu.IMUGetPollInterval()
+print("Recommended Poll Interval: %dmS\n" % poll_interval)
+
 # Defining functions for key board input\
 
 def HigherControl(k, v0):
@@ -80,7 +83,7 @@ def HigherControl(k, v0):
                 print([Gait, x1])
             elif Gait == 'Carpet':
                 Gait = 'Floor'
-                
+ 
         if k == ' ' and Stabilize == 0:
             print("Stabilization ON")
             Stabilize = 1
@@ -187,6 +190,7 @@ alpha_phi = 1.25
 Break = 0
 Gait = 'Floor'
 Stabilize = 0
+
 while 1:
     # Reading from IMU data
     if imu.IMURead():
@@ -194,9 +198,9 @@ while 1:
             data = imu.getIMUData()
             # reading the fused data ( Roll-Pitch-Yaw)
             fusionPose = data["fusionPose"]
-	    fusionVel = data["gyro"] # reading the values from the gyroscope
-	    Acc = data["accel"] # reading the data from the accelerometer
-	    
+	    #fusionVel = data["gyro"] # reading the values from the gyroscope
+	    #Acc = data["accel"] # reading the data from the accelerometer
+
     if kb.kbhit():
 	c = kb.getch()
 	if ord(c) == 27: # ESC

@@ -81,12 +81,12 @@ def HigherControl(k, v0):
             elif Gait == 'Carpet':
                 Gait = 'Floor'
                 
-        if k == ' ' and Stabilize == 0:
+        if k == ' ' and Stabilize == 'off':
             print("Stabilization ON")
-            Stabilize = 1
-        elif k == ' ' and Stabilize == 1:
+            Stabilize = 'on'
+        elif k == ' ' and Stabilize == 'on':
             print("Stabilization OFF")
-            Stabilize = 0
+            Stabilize = 'off'
 	return [v, omega]
 
 global v0, Phi0, Stabilize, Break, Gait
@@ -176,8 +176,8 @@ clock_begin = time.time()
 q = np.zeros([12, 1])
 q_3d = np.zeros([12, 1])
 
-theta = [0 , 0, 0 , 0]
-theta0 = [0 , 0, 0 , 0]
+theta = [0, 0, 0 , 0]
+theta0 = [0, 0, 0 , 0]
 omega = 0 # Intiating turning variable
 fre_out = 0 # Initiating oscillation frequrncy (Hz)
 Phi = [0, 0, 0, 0]
@@ -222,13 +222,19 @@ while 1:
     else:
         Amp_turn = np.array([1, 1, 1, 1])
 
-
     # Inverse kinematics and angle transformation of individual legs
     x_offset = [0, 0, -0.005, -0.005]
     y_offset = [-0.0175, -0.0175, -0.0175, -0.0175]
-    #[leg_x, leg_y] = body_stabilize(fusionPose, lh, lk, body_geometry)
+    
+    # Checking out for joint stabilization
+    if Stabilize=='on':
+        [leg_x, leg_y, leg_z] = body_stabilize(fusionPose, lh, lk, body_geometry)
+    
+    # Checking out for fall prevention
+    if fall_prevention == 'on':
+        [leg_x_fall, leg_y_fall, leg_z_fall] =fall_prevention(Acceleration, lh, lk, body_geometry)
+        
     for i in range(4):
-
 	Phi_var = alpha_phi*(Phi0[i]-phi[i]) * dt + phi[i]
 	phi[i] = Phi_var
         theta[i] = 2*PI*fre_out * dt +  theta0[i]				# Eular integration
@@ -242,24 +248,49 @@ while 1:
         elif Gait =='Carpet':
             y_end = y_carpet
             x_end = x_carpet
-                
+        # Introducing Stavilization: The stabilization code works by adding offsets to the
+                                    # link lengths. These offsets can be link lengths or function of link lengths.
+                                    # Majority of the addition is done in Y axis.
+        if Stabilize == 'on':
+            x_offset_delta = leg_x[i]
+            y_offset_delta = leg_z[i]
+        else:
+            x_offset_delta = 0
+            y_offset_delta = 0
+        
+        # Introducing fall prevention: The fall prevention works by changing the body orientation to account
+                                    # for the undesired acceleration
+        if fall_prevention == 'on':
+            x_offset_delta = leg_x_fall[i]
+            y_offset_delta = leg_z_fall[i]
+        else:
+            x_offset_delta = 0
+            y_offset_delta = 0
+            
 	# First order approximation
 	if Break == 1:  # This brakes the robot and makes the robot come to
                         # a halting pose
-            dx_data = -x_data
-            dy_data = -(y_data + 0.2)
-            x_data = dx_data *dt + x_data
-            y_data = dy_data *dt + y_data
-        #elif Stabilize == 1:
-         #   x_data = leg_x[i]
-          #  y_data = leg_y[i]
+            x_data = 0
+            y_data = -0.2
         else:
             # Need to insert the filters
             x_data = x_end[i][ip-1] + (x_end[i][ip] - x_end[i][ip-1]) * dtheta/Dtheta + x_offset[i]
             y_data = y_end[i][ip-1] +  (y_end[i][ip] - y_end[i][ip-1]) * dtheta/Dtheta + y_offset[i]
+            
+            #kMP[0] = cos(Theta); dkMP[0] = -sin(Theta)
+            #kMP[1] = cos(2*Theta); dkMP[1] = -2*sin(2*Theta)
+            #kMP[2] = sin(Theta); dkMP[2] = cos(Theta)
+            #kMP[3] = sin(2*Theta); dkMP[3] = 2*cos(2*Theta) 
+        
+            # First order approximation
+            #x_data = x_offset[0] + np.dot(np.array(kMP), np.array(W[:,2*i]))
+            #y_data = y_offset[1] + np.dot(np.array(kMP), np.array(W[:,2*i+1]))
 
-	r = [-Amp_turn[i] * x_data, y_data]
+	r_desired = [-Amp_turn[i] * x_data, y_data]
 
+        # lowpass selective filter 
+        dr = dr_desired + alpha*(r_desired - r)
+        r = dr * dt + r
         # 
 
         q_IK = IK(Lh, Lk, r)

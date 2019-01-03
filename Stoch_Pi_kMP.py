@@ -20,6 +20,7 @@ PI = math.pi # Pi
 # Defining functions for key board input\
 
 def HigherControl(k, v0):
+	global Phi0
 	# Oscillation control
 	if k == 'w':
             v = v0 + 0.05
@@ -35,13 +36,19 @@ def HigherControl(k, v0):
 	else:
             omega = 0
 
-	if k == 'b':
+	if k == 'b':		# Breaking the robot
 		omega = 0; v = 0
+
+	if k == 'l':
+                Phi0 = [PI, PI, 0, 0]
+	elif k=='k':
+		Phi0 =[0, 0, 0, 0]
 
 	return [v, omega]
 
-global v0
+global v0, Phi0
 v0 = 0.0
+Phi0 = [0, 0, 0, 0]
 kb = KBHit() # creating Object of class KBHit
 # Get key board value funtion
 
@@ -112,6 +119,12 @@ W= np.loadtxt('Weight_RL_CS.txt').transpose()
 Phi = [0, PI, PI, 0]
 # [-0.0503245,  -0.06732678,  1.0, -0.03611052,  1.0, -0.11518157, -0.11246687, -0.04629093,  0.12832975, -0.06655705,  1.0,  -0.15476286,  1.0, 0.0516125,   0.0841161,   0.18423271]
 r_off = [0.175,-10]
+
+Phi = [0, 0, 0, 0]
+phi = [0, 0, 0, 0]
+
+alpha_phi = 1.25
+
 while 1:
     if kb.kbhit():
 	c = kb.getch()
@@ -142,20 +155,24 @@ while 1:
     # Oscillation phase
     theta = (2*PI*fre_out * dt +  theta0)%(2*PI)				# Eular integration
     kMP = [0,0,0,0]
-
+    dkMP = [0,0,0,0]
     # Inverse kinematics and angle transformation of individual legs
     for i in range(4):
 	Theta = (theta + Phi[i])% (2*PI)
 	# Determining the kMP
-	kMP[0] = cos(Theta)
-	kMP[1] = cos(2*Theta)
-	kMP[2] = sin(Theta)
-	kMP[3] = sin(2*Theta)
-
+	kMP[0] = cos(Theta); dkMP[0] = -sin(Theta)
+	kMP[1] = cos(2*Theta); dkMP[1] = -2*sin(2*Theta)
+	kMP[2] = sin(Theta); dkMP[2] = cos(Theta)
+	kMP[3] = sin(2*Theta); dkMP[3] = 2*cos(2*Theta) 
+        
 	# First order approximation
         l_data = r_off[0] + np.dot(np.array(kMP), np.array(W[:,2*i])) * 0.04
         theta_data = r_off[1] + 8.33 *  np.dot(np.array(kMP), np.array(W[:,2*i+1])) *PI/180.
-
+        
+    
+    #    dl_data = np.dot(np.array(dkMP), np.array(W[:,2*i])) * 0.04 + alpha_data * Delta[0].
+    #    dtheta_data = 8.33 *  np.dot(np.array(dkMP), np.array(W[:,2*i+1])) *PI/180 + alpha_data * Delta[1].
+        
 	r = [l_data, Amp_turn[i]*theta_data]
 	q_IK = IK_polar(Lh, Lk, r)
 	# Angle transformation between Robot Actuator frame and
